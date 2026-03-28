@@ -29,9 +29,10 @@ def load_and_split(
     documents = loader.load()
     logger.info(f"Trying to split chunks")
     splitter = RecursiveCharacterTextSplitter(        
-        chunk_size = 500,
-        chunk_overlap = 50,
+        chunk_size = 300,
+        chunk_overlap = 100,
     )
+    logger.info(f"Splitter: {splitter}")
     chunks = splitter.split_documents(documents=documents)
     logger.info(f"Chunks splitted successufully")
 

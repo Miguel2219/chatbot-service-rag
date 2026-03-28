@@ -1,6 +1,6 @@
 import dependencies
 from fastapi import APIRouter, HTTPException
-from schemas.models import ChatRequest,ChatResponse
+from schemas.models import ChatRequest,ChatResponse, LeadData
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,10 +16,13 @@ async def conversation(request: ChatRequest):
         )
         logger.info(f"session {request.session_id} created successfully")
         response = engine.query(message=request.message)
-        logger.info(f"query realized successfully")
+        lead_info = response.get("lead_data")
+        lead_data = LeadData(**lead_info) if lead_info else None
         return ChatResponse(
-        session_id=request.session_id,
-        response=response
+            session_id=request.session_id,
+            response=response.get("response"),
+            lead_captured=response.get("lead_captured"),
+            lead_data=lead_data
         )
     except ValueError as e:
         logger.error(f"Error getting conversation")
