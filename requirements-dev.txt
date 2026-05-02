@@ -1,0 +1,4 @@
+# Dependencias solo para desarrollo y testing.
+# Instalar con: pip install -r requirements.txt -r requirements-dev.txt
+pytest
+pytest-asyncio

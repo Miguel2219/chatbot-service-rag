@@ -1,30 +1,41 @@
-# Initialize shared resource when the server stats and register the routes to fastapi knows about endpoints
+# Initialize shared resource when the server starts and register the routes
+# so fastapi knows about endpoints.
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 import chromadb
-from config import settings #Instance created in config.py
+from config import settings  # Instance created in config.py
 import dependencies
 from services.session_manager import SessionManager
 from routers import chat, documents, process
+from services.security import verify_internal_key
 import logging
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,
 )
-logger = logging.getLogger(__name__)
+for name in logging.root.manager.loggerDict:
+    logging.getLogger(name).setLevel(logging.INFO)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"Starting up - initializing ChromaDB and SessionManager")
-    chroma_client = chromadb.PersistentClient(path=settings.chroma_persist_path)
+    chroma_client = chromadb.HttpClient(
+        host=settings.chroma_host,
+        port=settings.chroma_port,
+    )
     dependencies.chroma_client = chroma_client
     dependencies.session_manager = SessionManager()
+    # Arranca la task background que purga sesiones expiradas (TTL).
+    dependencies.session_manager.start_cleanup()
     yield
-    logger.info(f"Shutting down")
+    # Cierre limpio: cancela la task de cleanup al apagar el servidor.
+    await dependencies.session_manager.stop_cleanup()
+
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(chat.router)
-app.include_router(process.router)
-app.include_router(documents.router)
+app.include_router(chat.router, dependencies=[Depends(verify_internal_key)])
+app.include_router(process.router, dependencies=[Depends(verify_internal_key)])
+app.include_router(documents.router, dependencies=[Depends(verify_internal_key)])
